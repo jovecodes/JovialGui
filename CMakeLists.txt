@@ -30,6 +30,7 @@ set(JOVIAL_INCLUDES
 
 add_executable(${APP}
         src/main.cpp
+        src/JovialGui.cpp
 )
 
 target_link_libraries(${APP} PRIVATE 
