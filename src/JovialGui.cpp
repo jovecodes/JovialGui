@@ -12,7 +12,7 @@ bool GuiPlugin::on_win_resize(WindowResizeEvent &_) {
 
 void GuiPlugin::on_event(Event &event) {
     EventDispatcher d(event);
-    d.dispatch<WindowResizeEvent>(BIND_EVENT_FN(GuiPlugin::on_win_resize));
+    d.dispatch<WindowResizeEvent>(SIGNAL_CONNECT_1(GuiPlugin::on_win_resize), this);
 }
 
 void GuiNode::on_resize() {
@@ -78,10 +78,10 @@ void GuiNode::set_is_greedy(bool greedy) {
     resize_all();
 }
 
-void GuiNode::add_gui_child(const std::shared_ptr<GuiNode> &node) {
+void GuiNode::add_gui_child(const SharedPtr<GuiNode> &node) {
     gui_children.push_back(node);
     node->gui_parent = this;
-    add_child(node.get());
+    add_child((Node *) node.ptr);
 
     on_resize();
     resize_all();
@@ -98,16 +98,13 @@ void GuiNode::resize_all() {
     }
 }
 
-Label::Label(std::string text, Font *font, TextDrawProps props)
-    : text(std::move(text)), props(props), font(font) {
-    if (!font) {
-        this->font = FontBank::get_normal();
-    }
+Label::Label(String text, Font *font, TextDrawProps props)
+    : text(text), props(props), font(font) {
     recalc_size();
     resize_all();
 }
 
-void Label::set_text(const std::string &text) {
+void Label::set_text(const String &text) {
     this->text = text;
     recalc_size();
 }
@@ -139,7 +136,7 @@ void GuiPlugin::add_gui_head(GuiNode *head) {
     instance->gui_heads.insert(head);
 }
 
-std::string anchor_to_string(Anchors anchor) {
+String anchor_to_string(Anchors anchor) {
     switch (anchor) {
         case Anchors::TopLeft:
             return "TopLeft";
@@ -160,5 +157,5 @@ std::string anchor_to_string(Anchors anchor) {
         case Anchors::BottomRight:
             return "BottomRight";
     }
-    return fmt::format("Unknown {}", (int) anchor);
+    return format_string("Unknown ", (int) anchor);
 }

@@ -9,6 +9,7 @@
 #include "Jovial/JovialEngine.h"
 #include "Jovial/Renderer/Material.h"
 #include "Jovial/Renderer/TextRenderer.h"
+#include "Jovial/Std/Color.h"
 
 using namespace jovial;
 
@@ -30,7 +31,7 @@ enum class Anchors {
     BottomRight,
 };
 
-std::string anchor_to_string(Anchors anchor);
+String anchor_to_string(Anchors anchor);
 
 class GuiNode;
 
@@ -60,9 +61,9 @@ private:
 class GuiNode : public Node {
 public:
     virtual void on_resize();
-    Vector2 get_global_position() const;
+    [[nodiscard]] Vector2 get_global_position() const;
     void set_is_greedy(bool greedy);
-    void add_gui_child(const std::shared_ptr<GuiNode> &node);
+    void add_gui_child(const SharedPtr<GuiNode> &node);
 
     inline Anchors get_anchor() { return anchor; }
     inline void set_anchor(Anchors anchor) {
@@ -86,21 +87,21 @@ protected:
 
 private:
     Rect2 extent{};
-    Rect2 max_size{};
+    Rect2 min_extent{};
     bool greedy = false;
     Anchors anchor = Anchors::Middle;
-    std::vector<std::shared_ptr<GuiNode>> gui_children;
+    Vec<SharedPtr<GuiNode>> gui_children;
 };
 
 class Label : public GuiNode {
 public:
-    Label(std::string text, Font *font = nullptr, TextDrawProps props = {});
+    Label(String text, Font *font, TextDrawProps props = {});
 
-    void set_text(const std::string &text);
+    void set_text(const String &text);
 
-    void set_color(glm::vec4 color) { this->props.color = color; }
-    std::string &get_text() { return text; }
-    Vector2 get_size() { return size; }
+    void set_color(Color color) { this->props.color = color; }
+    [[nodiscard]] inline const String &get_text() const { return text; }
+    [[nodiscard]] inline Vector2 get_size() const { return size; }
 
     bool visable = true;
     AlignModes align_mode = AlignModes::Left;
@@ -108,8 +109,8 @@ public:
 protected:
     TextDrawProps props;
     Font *font;
-    glm::vec2 size{};
-    std::string text;
+    Vector2 size{};
+    String text;
 
 protected:
     void update() override;
