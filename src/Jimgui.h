@@ -29,6 +29,13 @@ namespace jovial::jimgui {
         String string;
         String label;
         float padding = JIMGUI_DEFAULT_PADDING;
+        Vec<char> command_stack;
+
+        enum {
+            INSERT,
+            NORMAL,
+            VISUAL,
+        } mode = INSERT;
 
         size_t visual_begin = 0, visual_end = 0;
 
