@@ -60,8 +60,8 @@ public:
         static jimgui::FloatEditor float_editor("My Float:");
         float_editor.edit({100, 100}, my_float);
 
-        static jimgui::FloatEditor pad_editor("Padding:");
-        pad_editor.edit({100, 140}, float_editor.padding);
+        // static jimgui::FloatEditor pad_editor("Padding:");
+        // pad_editor.edit({100, 140}, float_editor.padding);
 
 
         static String my_string = "hello, world";

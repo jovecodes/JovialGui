@@ -60,28 +60,28 @@ namespace jovial::jimgui {
     void FloatEditor::edit(Vector2 position, float &val) {
         String str = to_string(val);
 
-        Rect2 rect = draw_jimgui_box(position, label, str, padding);
-        bool overlaps = update_drag_start(rect);
+        // Rect2 rect = draw_jimgui_box(position, label, str, padding);
+        // bool overlaps = update_drag_start(rect);
 
-        if (rect.overlaps(DRAG_START) && Input::is_pressed(Actions::LeftMouseButton)) {
-            auto dif = Input::get_mouse_delta().x / 5;
-            if (dif != 0) {
-                float signum = dif / math::abs(dif);
-                if (Input::is_pressed(Actions::LeftControl)) {
-                    val += dif * dif * signum / 100.0f;
-                } else {
-                    val += dif * dif * signum;
-                }
-            }
-
-            if (Input::is_pressed(Actions::LeftShift)) {
-                val = math::round(val);
-            }
-        }
-
-        if (Input::is_just_released(Actions::LeftMouseButton)) {
-            DRAG_START = {-1, -1};
-        }
+        // if (rect.overlaps(DRAG_START) && Input::is_pressed(Actions::LeftMouseButton)) {
+        //     auto dif = Input::get_mouse_delta().x / 5;
+        //     if (dif != 0) {
+        //         float signum = dif / math::abs(dif);
+        //         if (Input::is_pressed(Actions::LeftControl)) {
+        //             val += dif * dif * signum / 100.0f;
+        //         } else {
+        //             val += dif * dif * signum;
+        //         }
+        //     }
+        //
+        //     if (Input::is_pressed(Actions::LeftShift)) {
+        //         val = math::round(val);
+        //     }
+        // }
+        //
+        // if (Input::is_just_released(Actions::LeftMouseButton)) {
+        //     DRAG_START = {-1, -1};
+        // }
     }
 
     int get_closest_cursor_pos(const String &string, Vector2 pos, Vector2 target) {
@@ -118,12 +118,12 @@ namespace jovial::jimgui {
 
             case 'w': {
                 cursor_index = math::MIN(cursor_index + 1, string.length());
-                if (is_whitespace(string[cursor_index])) {
-                    while (is_whitespace(string[cursor_index]) && cursor_index < string.length()) {
+                if (is_whitespace(string[cursor_index - 1])) {
+                    while (is_whitespace(string[cursor_index - 1]) && cursor_index < string.length()) {
                         cursor_index++;
                     }
                 } else {
-                    while (is_alpha(string[cursor_index]) && cursor_index < string.length()) {
+                    while (is_alpha(string[cursor_index - 1]) && cursor_index < string.length()) {
                         cursor_index++;
                     }
                 }
@@ -214,133 +214,140 @@ namespace jovial::jimgui {
             rendering::draw_line({pos, {pos.x, pos.y + get_font()->size}}, 2);
 
 
-            switch (mode) {
-                case INSERT: {
-                    if (!string.is_empty()) {
-                        if (Input::is_typed(Actions::Left)) {
-                            if (cursor_index != 0) cursor_index -= 1;
-                        }
-                        if (Input::is_typed(Actions::Right)) {
-                            cursor_index = math::MIN(cursor_index + 1, string.length());
-                        }
-
-                        if (Input::is_typed(Actions::Backspace) && cursor_index > 0) {
-                            if (Input::is_pressed(Actions::LeftControl) || Input::is_pressed(Actions::RightControl)) {
-                                string.clear();
-                                cursor_index = 0;
-                            } else {
-                                string.erase((int) cursor_index - 1);
-                                cursor_index -= 1;
-                            }
-                        }
-                    }
-
-                    if (Input::is_just_pressed(Actions::V)) {
-                        if (Input::is_pressed(Actions::LeftControl) || Input::is_pressed(Actions::RightControl)) {
-                            String paste(clipboard::get());
-                            for (int i = 0; i < paste.size(); ++i) {
-                                if (paste[i] == '\n') {
-                                    paste[i] = ' ';
-                                }
-                            }
-                            string += paste;
-                            cursor_index += paste.size();
-                        }
-                    }
-
-                    if (Input::is_just_pressed(Actions::C)) {
-                        if (Input::is_pressed(Actions::LeftControl) || Input::is_pressed(Actions::RightControl)) {
-                            clipboard::set(string.c_str());
-                        }
-                    }
-
-                    for (char ch: Input::get_chars_typed()) {
-                        string.insert(ch, (int) cursor_index);
-                        cursor_index += 1;
-                    }
-
-                    if (Input::is_typed(Actions::Enter)) {
-                        val = string;
-                    }
-
-                    if (Input::is_typed(Actions::Escape)) {
-                        mode = NORMAL;
-                    }
+            switch (vim_mode) {
+                case VIM_INSERT: {
+                    update_insert_mode(val);
                 } break;
-                case NORMAL: {
-                    command_stack.append(Input::get_chars_typed());
-
-                    for (int i = 0; i < command_stack.size(); ++i) {
-                        next_pos_with_vim(i, command_stack, cursor_index, string);
-                        switch (command_stack[i]) {
-                            case 'd': {
-                                if (i + 1 < command_stack.size()) {
-                                    switch (command_stack[i + 1]) {
-                                        case 'd': {
-                                            string.clear();
-                                            cursor_index = 0;
-                                        } break;
-                                        default: {
-                                            size_t from_index = cursor_index;
-                                            next_pos_with_vim(i + 1, command_stack, cursor_index, string);
-                                            size_t to_index = cursor_index;
-                                            if (from_index < to_index) {
-                                                for (int c = (int) to_index; c > from_index; c--) {
-                                                    string.erase(c - 1);
-                                                }
-                                                cursor_index = from_index;
-                                            } else if (from_index > to_index) {
-                                                for (int c = (int) from_index; c > to_index; c--) {
-                                                    string.erase(c - 1);
-                                                }
-                                                cursor_index = to_index;
-                                            }
-                                            printj("delete stuff. From: ", (int) from_index, ", To: ", (int) to_index);
-
-                                        } break;
-                                    }
-                                    command_stack.clear();
-                                }
-                            } break;
-
-                            case 't': {
-                                if (i + 1 < command_stack.size()) {
-                                    char target = command_stack[i + 1];
-                                    for (size_t c = cursor_index + 1; c < string.size(); ++c) {
-                                        if (string[c] == target) {
-                                            cursor_index = c;
-                                            break;
-                                        }
-                                    }
-                                    command_stack.clear();
-                                }
-                            } break;
-
-                            case 'a': {
-                                mode = INSERT;
-                                command_stack.clear();
-                            } break;
-
-                            case 'A': {
-                                cursor_index = string.length();
-                                mode = INSERT;
-                                command_stack.clear();
-                            } break;
-
-                            case 'i': {
-                                if (cursor_index != 0) cursor_index -= 1;
-                                mode = INSERT;
-                                command_stack.clear();
-                            } break;
-
-                            default: {
-                            }
-                        }
-                    }
+                case VIM_NORMAL: {
+                    update_normal_mode();
                 } break;
-                case VISUAL: {
+                case VIM_VISUAL: {
                 }
             }
         }
     }
+    void StringEditor::update_normal_mode() {
+        command_stack.append(Input::get_chars_typed());
+
+        for (int i = 0; i < command_stack.size(); ++i) {
+            next_pos_with_vim(i, command_stack, cursor_index, string);
+
+            if (command_stack.is_empty()) continue;
+            switch (command_stack[i]) {
+                case 'd': {
+                    if (i + 1 < command_stack.size()) {
+                        switch (command_stack[i + 1]) {
+                            case 'd': {
+                                string.clear();
+                                cursor_index = 0;
+                            } break;
+                            default: {
+                                size_t from_index = cursor_index;
+                                next_pos_with_vim(i + 1, command_stack, cursor_index, string);
+                                size_t to_index = cursor_index;
+                                if (from_index < to_index) {
+                                    for (int c = (int) to_index; c > from_index; c--) {
+                                        string.erase(c - 1);
+                                    }
+                                    cursor_index = from_index;
+                                } else if (from_index > to_index) {
+                                    for (int c = (int) from_index; c > to_index; c--) {
+                                        string.erase(c - 1);
+                                    }
+                                    cursor_index = to_index;
+                                }
+                            } break;
+                        }
+                        command_stack.clear();
+                    }
+                } break;
+
+                case 't': {
+                    if (i + 1 < command_stack.size()) {
+                        char target = command_stack[i + 1];
+                        for (size_t c = cursor_index + 1; c < string.size(); ++c) {
+                            if (string[c] == target) {
+                                cursor_index = c;
+                                break;
+                            }
+                        }
+                        command_stack.clear();
+                    }
+                } break;
+
+                case 'a': {
+                    vim_mode = VIM_INSERT;
+                    command_stack.clear();
+                } break;
+
+                case 'A': {
+                    cursor_index = string.length();
+                    vim_mode = VIM_INSERT;
+                    command_stack.clear();
+                } break;
+
+                case 'i': {
+                    if (cursor_index != 0) cursor_index -= 1;
+                    vim_mode = VIM_INSERT;
+                    command_stack.clear();
+                } break;
+
+                default: {
+                }
+            }
+        }
+    }
+    void StringEditor::update_insert_mode(String &val) {
+        if (!string.is_empty()) {
+            if (Input::is_typed(Actions::Left)) {
+                if (cursor_index != 0) cursor_index -= 1;
+            }
+            if (Input::is_typed(Actions::Right)) {
+                cursor_index = math::MIN(cursor_index + 1, string.length());
+            }
+
+            if (Input::is_typed(Actions::Backspace) && cursor_index > 0) {
+                if (Input::is_pressed(Actions::LeftControl) || Input::is_pressed(Actions::RightControl)) {
+                    string.clear();
+                    cursor_index = 0;
+                } else {
+                    string.erase((int) cursor_index - 1);
+                    cursor_index -= 1;
+                }
+            }
+        }
+
+        if (Input::is_just_pressed(Actions::V)) {
+            if (Input::is_pressed(Actions::LeftControl) || Input::is_pressed(Actions::RightControl)) {
+                String paste(clipboard::get());
+                for (int i = 0; i < paste.size(); ++i) {
+                    if (paste[i] == '\n') {
+                        paste[i] = ' ';
+                    }
+                }
+                string += paste;
+                cursor_index += paste.size();
+            }
+        }
+
+        if (Input::is_just_pressed(Actions::C)) {
+            if (Input::is_pressed(Actions::LeftControl) || Input::is_pressed(Actions::RightControl)) {
+                clipboard::set(string.c_str());
+            }
+        }
+
+        for (char ch: Input::get_chars_typed()) {
+            string.insert(ch, (int) cursor_index);
+            cursor_index += 1;
+        }
+
+        if (Input::is_typed(Actions::Enter)) {
+            val = string;
+        }
+
+        if (Input::is_typed(Actions::Escape)) {
+            vim_mode = VIM_NORMAL;
+        }
+    }
+
 }// namespace jovial::jimgui

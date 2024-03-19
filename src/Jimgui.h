@@ -12,16 +12,6 @@ namespace jovial::jimgui {
     void set_font(Font *font);
     Font *get_font();
 
-    struct FloatEditor {
-        explicit FloatEditor(String label = "") : label(label.move()) {}
-
-        String string;
-        String label;
-        float padding = JIMGUI_DEFAULT_PADDING;
-
-        void edit(Vector2 position, float &val);
-    };
-
     struct StringEditor {
         explicit StringEditor(String label = "") : label(label.move()) {}
 
@@ -32,10 +22,15 @@ namespace jovial::jimgui {
         Vec<char> command_stack;
 
         enum {
-            INSERT,
-            NORMAL,
-            VISUAL,
-        } mode = INSERT;
+            VIM_INSERT,
+            VIM_NORMAL,
+            VIM_VISUAL,
+        } vim_mode = VIM_INSERT;
+
+        enum {
+            NORMAL_MODE,
+            NUMARIC_MODE,
+        } input_mode;
 
         size_t visual_begin = 0, visual_end = 0;
 
@@ -43,6 +38,17 @@ namespace jovial::jimgui {
         bool has_mouse = false;
 
         void edit(Vector2 position, String &val);
+        void update_normal_mode();
+        void update_insert_mode(String &val);
+    };
+
+
+    struct FloatEditor {
+        explicit FloatEditor(String label = "") : string_editor(label.move()) {}
+
+        StringEditor string_editor;
+
+        void edit(Vector2 position, float &val);
     };
 
 }// namespace jovial::jimgui
