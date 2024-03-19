@@ -1,9 +1,11 @@
 #include "Jimgui.h"
 #include "Jovial/Components/Util/Clipboard.h"
 #include "Jovial/Input/Input.h"
+#include "Jovial/Renderer/TextRenderer.h"
 #include "Jovial/Shapes/Color.h"
 #include "Jovial/Shapes/ShapeDrawer.h"
 #include "Jovial/Std/Char.h"
+#include "Jovial/Std/String.h"
 
 namespace jovial::jimgui {
 
@@ -20,6 +22,33 @@ namespace jovial::jimgui {
     Font *get_font() {
         JV_CORE_ASSERT(FONT, "You have not set Jimgui font! Set it with jimgui::set_font");
         return FONT;
+    }
+
+    bool button(Rect2 rect, const String &label) {
+        bool overlaps = rect.overlaps(Input::get_mouse_position());
+
+        Vector2 label_size = measure_text(label, get_font());
+        Vector2 rect_size = rect.size();
+
+        Vector2 label_position = rect.position() + (rect_size - label_size) / 2.0f;
+
+        TextDrawProps text_props;
+        text_props.color = Colors::White;
+        text_props.z_index = 11;
+
+        get_font()->draw(label_position, label, text_props);
+
+        if (Input::is_pressed(Actions::LeftMouseButton) && overlaps) {
+            rect = rect.expand(-5);
+        }
+        rendering::ShapeDrawProperties props;
+        props.color = Colors::JovialLightGray;
+        rendering::draw_rect2(rect, props);
+        props.color = Colors::Black;
+        rendering::draw_rect2_outline(rect, 1, props);
+
+
+        return Input::is_just_released(Actions::LeftMouseButton) && overlaps;
     }
 
     Rect2 draw_jimgui_box(Vector2 position, const String &label, const String &value, float padding) {
@@ -58,30 +87,34 @@ namespace jovial::jimgui {
     }
 
     void FloatEditor::edit(Vector2 position, float &val) {
-        String str = to_string(val);
+        string_editor.edit_float(position, val);
 
-        // Rect2 rect = draw_jimgui_box(position, label, str, padding);
-        // bool overlaps = update_drag_start(rect);
+        Rect2 rect = string_editor.get_rect(position);
 
-        // if (rect.overlaps(DRAG_START) && Input::is_pressed(Actions::LeftMouseButton)) {
-        //     auto dif = Input::get_mouse_delta().x / 5;
-        //     if (dif != 0) {
-        //         float signum = dif / math::abs(dif);
-        //         if (Input::is_pressed(Actions::LeftControl)) {
-        //             val += dif * dif * signum / 100.0f;
-        //         } else {
-        //             val += dif * dif * signum;
-        //         }
-        //     }
-        //
-        //     if (Input::is_pressed(Actions::LeftShift)) {
-        //         val = math::round(val);
-        //     }
-        // }
-        //
-        // if (Input::is_just_released(Actions::LeftMouseButton)) {
-        //     DRAG_START = {-1, -1};
-        // }
+        if (Input::is_just_pressed(Actions::LeftMouseButton)) {
+            DRAG_START = Input::get_mouse_position();
+        }
+        if (rect.overlaps(DRAG_START) && Input::is_pressed(Actions::LeftMouseButton)) {
+            auto dif = Input::get_mouse_delta().x / 5;
+            if (dif != 0) {
+                float signum = dif / math::abs(dif);
+                if (Input::is_pressed(Actions::LeftControl)) {
+                    val += dif * dif * signum / 100.0f;
+                } else {
+                    val += dif * dif * signum;
+                }
+                string_editor.no_string = true;
+            }
+
+            if (Input::is_pressed(Actions::LeftShift)) {
+                val = math::round(val);
+                string_editor.no_string = true;
+            }
+        }
+
+        if (Input::is_just_released(Actions::LeftMouseButton)) {
+            DRAG_START = {-1, -1};
+        }
     }
 
     int get_closest_cursor_pos(const String &string, Vector2 pos, Vector2 target) {
@@ -168,55 +201,91 @@ namespace jovial::jimgui {
     }
 
     void StringEditor::edit(Vector2 position, String &val) {
+        input_mode = NORMAL_MODE;
         if (no_string) {
             string = val;
             no_string = false;
         }
 
-        float length = 0;
-
-        if (!label.is_empty()) {
-            length += measure_text(label.c_str(), get_font(), 0).x;
-            length += padding * 2;
-        }
-
-        length += measure_text(string.c_str(), get_font()).x + padding;
-
-        rendering::ShapeDrawProperties props;
-        props.color = Colors::JovialLightGray;
-
-        Rect2 rect{position.x, position.y - padding, position.x + length, position.y + get_font()->size};
-        rendering::draw_rect2(rect, props);
-        props.color = Colors::Black;
-        rendering::draw_rect2_outline(rect, 1, props);
-
-        if (!label.is_empty()) {
-            draw_text(position, label, get_font(), {Colors::White});
-            position.x += measure_text(label.c_str(), get_font()).x + padding;
-        }
-
-        draw_text(position, string, get_font(), {Colors::White});
-        position.x += padding;
-
-        bool overlaps = update_drag_start(rect);
-
-        if (Input::is_just_pressed(Actions::LeftMouseButton)) {
-            has_mouse = rect.overlaps(DRAG_START);
-            cursor_index = 0;
-
-            cursor_index = get_closest_cursor_pos(string, position, Input::get_mouse_position());
-        }
+        render(position);
 
         if (has_mouse) {
-            Vector2 pos = position;
-            pos.x += measure_text(StringView(string, 0, (int) cursor_index), get_font()).x;
-
-            rendering::draw_line({pos, {pos.x, pos.y + get_font()->size}}, 2);
-
-
             switch (vim_mode) {
                 case VIM_INSERT: {
-                    update_insert_mode(val);
+                    update_insert_mode();
+
+                    if (Input::is_typed(Actions::Enter)) {
+                        val = string;
+                    }
+                } break;
+                case VIM_NORMAL: {
+                    update_normal_mode();
+                } break;
+                case VIM_VISUAL: {
+                }
+            }
+        }
+        if (Input::is_typed(Actions::Enter)) {
+            no_string = true;
+        }
+    }
+
+    void StringEditor::edit_float(Vector2 position, float &val) {
+        input_mode = NUMARIC_FLOAT_MODE;
+        if (no_string | !has_mouse) {
+            string = to_string(val);
+            no_string = false;
+        }
+
+        render(position);
+
+        if (has_mouse) {
+            switch (vim_mode) {
+                case VIM_INSERT: {
+                    update_insert_mode();
+
+                    if (Input::is_typed(Actions::Enter)) {
+                        bool error = false;
+                        auto res = (float) atof(string.c_str(), &error);
+                        if (!error) {
+                            val = res;
+                        }
+                    }
+                } break;
+                case VIM_NORMAL: {
+                    update_normal_mode();
+                } break;
+                case VIM_VISUAL: {
+                }
+            }
+        }
+        if (Input::is_typed(Actions::Enter)) {
+            no_string = true;
+        }
+    }
+
+    void StringEditor::edit_int(Vector2 position, int &val) {
+        input_mode = NUMARIC_INT_MODE;
+        if (no_string | !has_mouse) {
+            string = to_string(val);
+            no_string = false;
+        }
+
+        render(position);
+
+        if (has_mouse) {
+            switch (vim_mode) {
+                case VIM_INSERT: {
+                    update_insert_mode();
+
+                    if (Input::is_typed(Actions::Enter)) {
+                        bool error = false;
+                        auto res = atoi(string.c_str(), &error);
+                        if (!error) {
+                            val = res;
+                        }
+                        no_string = true;
+                    }
                 } break;
                 case VIM_NORMAL: {
                     update_normal_mode();
@@ -226,6 +295,7 @@ namespace jovial::jimgui {
             }
         }
     }
+
     void StringEditor::update_normal_mode() {
         command_stack.append(Input::get_chars_typed());
 
@@ -297,7 +367,8 @@ namespace jovial::jimgui {
             }
         }
     }
-    void StringEditor::update_insert_mode(String &val) {
+
+    void StringEditor::update_insert_mode() {
         if (!string.is_empty()) {
             if (Input::is_typed(Actions::Left)) {
                 if (cursor_index != 0) cursor_index -= 1;
@@ -337,17 +408,94 @@ namespace jovial::jimgui {
         }
 
         for (char ch: Input::get_chars_typed()) {
-            string.insert(ch, (int) cursor_index);
-            cursor_index += 1;
-        }
+            switch (input_mode) {
+                case NORMAL_MODE: {
+                    string.insert(ch, (int) cursor_index);
+                    cursor_index += 1;
+                } break;
+                case NUMARIC_INT_MODE: {
+                    if (is_num(ch)) {
+                        string.insert(ch, (int) cursor_index);
+                        cursor_index += 1;
+                    }
+                } break;
+                case NUMARIC_FLOAT_MODE: {
+                    bool has_decimal = false;
+                    bool has_e = false;
+                    for (auto ch: string) {
+                        if (ch == '.') has_decimal = true;
+                        if (ch == 'e' || ch == 'E') has_e = true;
+                    }
 
-        if (Input::is_typed(Actions::Enter)) {
-            val = string;
+                    if (is_num(ch) || ch == '-' || (!has_decimal && ch == '.') || (!has_e && (ch == 'e' || ch == 'E'))) {
+                        string.insert(ch, (int) cursor_index);
+                        cursor_index += 1;
+                    }
+                } break;
+                default:
+                    JV_UNREACHABLE
+            }
         }
 
         if (Input::is_typed(Actions::Escape)) {
             vim_mode = VIM_NORMAL;
         }
+    }
+
+    void StringEditor::render(Vector2 position) {
+        rendering::ShapeDrawProperties props;
+        props.color = Colors::JovialLightGray;
+
+        Rect2 rect = get_rect(position);
+        rendering::draw_rect2(rect, props);
+        props.color = Colors::Black;
+        rendering::draw_rect2_outline(rect, 1, props);
+
+        if (!label.is_empty()) {
+            draw_text(position, label, get_font(), {Colors::White});
+            position.x += measure_text(label.c_str(), get_font()).x + padding;
+        }
+
+        draw_text(position, string, get_font(), {Colors::White});
+        position.x += padding;
+
+        bool overlaps = update_drag_start(rect);
+
+        bool clicked = false;
+        if (!double_click_to_input && Input::is_just_pressed(Actions::LeftMouseButton)) clicked = true;
+        if (double_click_to_input && Input::just_double_clicked()) clicked = true;
+
+        if (Input::is_just_pressed(Actions::LeftMouseButton)) {
+            if (!rect.overlaps(DRAG_START)) has_mouse = false;
+        }
+
+        if (clicked) {
+            has_mouse = rect.overlaps(DRAG_START);
+            cursor_index = get_closest_cursor_pos(string, position, Input::get_mouse_position());
+        }
+
+        if (has_mouse) {
+            Vector2 pos = position;
+            pos.x += measure_text(StringView(string, 0, (int) cursor_index), get_font()).x;
+
+            rendering::draw_line({pos, {pos.x, pos.y + get_font()->size}}, 2);
+        }
+    }
+
+    Rect2 StringEditor::get_rect(Vector2 position) {
+        float length = 0;
+
+        if (!label.is_empty()) {
+            length += measure_text(label.c_str(), get_font(), 0).x;
+            length += padding * 2;
+        }
+
+        length += measure_text(string.c_str(), get_font()).x + padding;
+
+        return {position.x - padding, position.y - padding, position.x + length, position.y + get_font()->size};
+    }
+
+    void Vector2Editor::edit(Vector2 position, Vector2 &val) {
     }
 
 }// namespace jovial::jimgui

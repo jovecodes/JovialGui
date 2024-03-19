@@ -63,11 +63,15 @@ public:
         // static jimgui::FloatEditor pad_editor("Padding:");
         // pad_editor.edit({100, 140}, float_editor.padding);
 
-
         static String my_string = "hello, world";
         static jimgui::StringEditor str_editor("My String:");
 
         str_editor.edit({100, 180}, my_string);
+        // printj(my_float);
+
+        if (jimgui::button({500, 100, 700, 200}, "Press Me!")) {
+            printj("click");
+        }
 
         // jimgui::edit_float({100, 100}, my_float, "MyVec");
 
