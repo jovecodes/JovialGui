@@ -13,6 +13,7 @@ namespace jovial::jimgui {
     Font *get_font();
 
     bool button(Rect2 rect, const String &label);
+    void checkbox(Rect2 rect, bool &checked);
 
     struct StringEditor {
         explicit StringEditor(String label = "") : label(label.move()) {}
@@ -68,11 +69,32 @@ namespace jovial::jimgui {
     struct Vector2Editor {
         explicit Vector2Editor(String label = "") : label(label.move()) {}
 
+        float padding = JIMGUI_DEFAULT_PADDING;
         String label;
         FloatEditor x_editor;
         FloatEditor y_editor;
 
+        bool draw_pos = false;
+        bool dragging = false;
+
         void edit(Vector2 position, Vector2 &val);
+    };
+
+    struct Rect2Editor {
+        explicit Rect2Editor(String label = "") : label(label.move()) {}
+
+        float padding = JIMGUI_DEFAULT_PADDING;
+        String label;
+        FloatEditor x_editor;
+        FloatEditor y_editor;
+        FloatEditor w_editor;
+        FloatEditor h_editor;
+
+        bool draw_pos = false;
+        bool dragging_bottom_left = false;
+        bool dragging_top_right = false;
+
+        void edit(Vector2 position, Rect2 &val);
     };
 
 }// namespace jovial::jimgui

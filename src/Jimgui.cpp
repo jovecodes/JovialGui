@@ -28,6 +28,7 @@ namespace jovial::jimgui {
         bool overlaps = rect.overlaps(Input::get_mouse_position());
 
         Vector2 label_size = measure_text(label, get_font());
+        label_size.y /= 2;
         Vector2 rect_size = rect.size();
 
         Vector2 label_position = rect.position() + (rect_size - label_size) / 2.0f;
@@ -35,6 +36,7 @@ namespace jovial::jimgui {
         TextDrawProps text_props;
         text_props.color = Colors::White;
         text_props.z_index = 11;
+        text_props.fix_start_pos = true;
 
         get_font()->draw(label_position, label, text_props);
 
@@ -49,6 +51,21 @@ namespace jovial::jimgui {
 
 
         return Input::is_just_released(Actions::LeftMouseButton) && overlaps;
+    }
+
+    void checkbox(Rect2 rect, bool &checked) {
+        bool overlaps = rect.overlaps(Input::get_mouse_position());
+
+        rendering::ShapeDrawProperties props;
+        props.color = Colors::JovialLightGray;
+        rendering::draw_rect2(rect, props);
+        props.color = Colors::Black;
+        rendering::draw_rect2_outline(rect, 1, props);
+
+        if (Input::is_just_released(Actions::LeftMouseButton) && overlaps) { checked = !checked; }
+        if (checked) {
+            rendering::draw_line({rect.position(), rect.position() + rect.size()}, 3, {Colors::White});
+        }
     }
 
     Rect2 draw_jimgui_box(Vector2 position, const String &label, const String &value, float padding) {
@@ -492,10 +509,170 @@ namespace jovial::jimgui {
 
         length += measure_text(string.c_str(), get_font()).x + padding;
 
-        return {position.x - padding, position.y - padding, position.x + length, position.y + get_font()->size};
+        return {position.x, position.y - padding, position.x + length + padding, position.y + get_font()->size};
     }
 
     void Vector2Editor::edit(Vector2 position, Vector2 &val) {
+        const float checkbox_length = get_font()->size;
+
+        if (x_editor.string_editor.no_string) {
+            x_editor.string_editor.string = to_string(val.x);
+            x_editor.string_editor.no_string = false;
+        }
+        if (y_editor.string_editor.no_string) {
+            y_editor.string_editor.string = to_string(val.y);
+            y_editor.string_editor.no_string = false;
+        }
+
+        float label_length = measure_text(label.c_str(), get_font(), 0).x;
+        float length = label_length + padding * 2;
+        float x_editor_length = x_editor.string_editor.get_rect({}).size().x;
+        float y_editor_length = y_editor.string_editor.get_rect({}).size().x;
+        length += x_editor_length + padding;
+        length += y_editor_length + padding;
+
+        length += checkbox_length + padding;
+
+        Rect2 rect{position.x - padding, position.y - padding, position.x + length, position.y + get_font()->size};
+
+        rendering::ShapeDrawProperties props;
+        props.color = Colors::JovialLightGray;
+        rendering::draw_rect2(rect, props);
+        props.color = Colors::Black;
+        rendering::draw_rect2_outline(rect, 1, props);
+
+        position.x += padding;
+        TextDrawProps text_props;
+        text_props.color = Colors::White;
+        text_props.fix_start_pos = true;
+        draw_text(position, label, get_font(), text_props);
+        position.x += label_length;
+        position.x += padding;
+
+        position.x += padding;
+        x_editor.edit(position, val.x);
+        position.x += x_editor.string_editor.get_rect(position).size().x;
+        position.x += padding;
+
+        position.x += padding;
+        y_editor.edit(position, val.y);
+        position.x += y_editor.string_editor.get_rect(position).size().x;
+
+        checkbox({position - Vector2(padding, padding), position + Vector2(checkbox_length, checkbox_length)}, draw_pos);
+        position.x += padding;
+
+        if (draw_pos) {
+            const float radius = get_font()->size / 2;
+            rendering::draw_circle({radius, val});
+            if (Input::is_just_pressed(Actions::LeftMouseButton) &&
+                val.distance_squared_to(Input::get_mouse_position()) < radius * radius) {
+                dragging = true;
+            }
+            if (Input::is_just_released(Actions::LeftMouseButton)) {
+                dragging = false;
+            }
+            if (Input::is_pressed(Actions::LeftMouseButton) && dragging) {
+                val += Input::get_mouse_delta();
+            }
+        }
     }
 
+    void Rect2Editor::edit(Vector2 position, Rect2 &val) {
+        const float checkbox_length = get_font()->size;
+
+        if (x_editor.string_editor.no_string) {
+            x_editor.string_editor.string = to_string(val.x);
+            x_editor.string_editor.no_string = false;
+        }
+        if (y_editor.string_editor.no_string) {
+            y_editor.string_editor.string = to_string(val.y);
+            y_editor.string_editor.no_string = false;
+        }
+        if (w_editor.string_editor.no_string) {
+            w_editor.string_editor.string = to_string(val.w);
+            w_editor.string_editor.no_string = false;
+        }
+        if (h_editor.string_editor.no_string) {
+            h_editor.string_editor.string = to_string(val.h);
+            h_editor.string_editor.no_string = false;
+        }
+
+        float label_length = measure_text(label.c_str(), get_font(), 0).x;
+        float length = label_length + padding * 2;
+        float x_editor_length = x_editor.string_editor.get_rect({}).size().x;
+        float y_editor_length = y_editor.string_editor.get_rect({}).size().x;
+        float w_editor_length = w_editor.string_editor.get_rect({}).size().x;
+        float h_editor_length = h_editor.string_editor.get_rect({}).size().x;
+        length += x_editor_length + padding;
+        length += y_editor_length + padding;
+        length += w_editor_length + padding;
+        length += h_editor_length + padding;
+
+        length += checkbox_length + padding;
+
+        Rect2 rect{position.x - padding, position.y - padding, position.x + length, position.y + get_font()->size};
+
+        rendering::ShapeDrawProperties props;
+        props.color = Colors::JovialLightGray;
+        rendering::draw_rect2(rect, props);
+        props.color = Colors::Black;
+        rendering::draw_rect2_outline(rect, 1, props);
+
+        position.x += padding;
+        TextDrawProps text_props;
+        text_props.color = Colors::White;
+        text_props.fix_start_pos = true;
+        draw_text(position, label, get_font(), text_props);
+        position.x += label_length;
+        position.x += padding;
+
+        position.x += padding;
+        x_editor.edit(position, val.x);
+        position.x += x_editor.string_editor.get_rect(position).size().x;
+        position.x += padding;
+
+        position.x += padding;
+        w_editor.edit(position, val.w);
+        position.x += w_editor.string_editor.get_rect(position).size().x;
+        position.x += padding;
+
+        position.x += padding;
+        h_editor.edit(position, val.h);
+        position.x += h_editor.string_editor.get_rect(position).size().x;
+        position.x += padding;
+
+        position.x += padding;
+        y_editor.edit(position, val.y);
+        position.x += y_editor.string_editor.get_rect(position).size().x;
+
+        checkbox({position - Vector2(padding, padding), position + Vector2(checkbox_length, checkbox_length)}, draw_pos);
+        position.x += padding;
+
+        if (draw_pos) {
+            const float radius = get_font()->size / 2;
+            rendering::draw_circle({radius, {val.x, val.y}});
+            rendering::draw_circle({radius, {val.w, val.h}});
+            if (Input::is_just_pressed(Actions::LeftMouseButton) &&
+                Vector2(val.x, val.y).distance_squared_to(Input::get_mouse_position()) < radius * radius) {
+                dragging_bottom_left = true;
+            }
+            if (Input::is_just_pressed(Actions::LeftMouseButton) &&
+                Vector2(val.w, val.h).distance_squared_to(Input::get_mouse_position()) < radius * radius) {
+                dragging_top_right = true;
+            }
+            if (Input::is_just_released(Actions::LeftMouseButton)) {
+                dragging_bottom_left = false;
+                dragging_top_right = false;
+            }
+            if (Input::is_pressed(Actions::LeftMouseButton) && dragging_bottom_left) {
+                val.x += Input::get_mouse_delta().x;
+                val.y += Input::get_mouse_delta().y;
+            }
+            if (Input::is_pressed(Actions::LeftMouseButton) && dragging_top_right) {
+                val.w += Input::get_mouse_delta().x;
+                val.h += Input::get_mouse_delta().y;
+            }
+            rendering::draw_rect2_outline(val, 3, {Colors::White});
+        }
+    }
 }// namespace jovial::jimgui

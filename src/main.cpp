@@ -67,9 +67,17 @@ public:
         static jimgui::StringEditor str_editor("My String:");
 
         str_editor.edit({100, 180}, my_string);
+
+        static Vector2 my_vec = {10, 10};
+        static jimgui::Vector2Editor vec_editor("My Vector2:");
+        vec_editor.edit({100, 220}, my_vec);
+
+        static Rect2 my_rect = {400, 400, 550, 420};
+        static jimgui::Rect2Editor rect_editor("My Rect2:");
+        rect_editor.edit({100, 220}, my_rect);
         // printj(my_float);
 
-        if (jimgui::button({500, 100, 700, 200}, "Press Me!")) {
+        if (jimgui::button(my_rect, "Press Me!")) {
             printj("click");
         }
 
